@@ -1,5 +1,8 @@
 #pragma once
+#include <vector>
+#include <string>
 
+// vec3 class declaration
 class vec3{
     public:
 
@@ -22,6 +25,7 @@ class vec3{
     vec3 normalized() const;
 };
 
+// ray class declaration
 class ray{
     public:
 
@@ -32,3 +36,20 @@ class ray{
 
     vec3 at(float);
 };
+
+// image class declaration
+class image{
+    public:
+
+    int width, height;
+    std::vector<u_int8_t> rgb;
+
+    image(int width, int height);
+
+    void set_pixel(int x, int y, u_int8_t r, u_int8_t g, u_int8_t b);
+
+    bool write_ppm(const std::string& filepath) const;
+};
+
+// gradient image generation function declaration
+void gradient_image(int width, int height, const std::string& filepath);

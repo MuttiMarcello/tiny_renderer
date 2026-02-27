@@ -19,10 +19,12 @@ At the current stage:
 - Define vector class
 - Define custom class operators
 - Include simple ray class
+- Implement RGB image binary output stream
 
 Planned next steps include:
-- Implement image writer
+- Carry out ray sphere hit test
 
 ## Repository Structure
 
 - 'src/' - C++ implementation
+- 'figures/' - Preliminary .ppm outputs
