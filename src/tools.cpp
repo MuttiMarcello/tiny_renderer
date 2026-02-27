@@ -61,3 +61,10 @@ vec3 vec3::normalized() const {
     if (n == 0) return *this; // Avoid division by zero
     return vec3(x / n, y / n, z / n);
 }
+
+// ray class member function definitions
+ray::ray(const vec3& origin, const vec3& direction) : origin(origin), direction(direction.normalized()) {}
+
+vec3 ray::at(float t) {
+    return origin + direction * t;
+}

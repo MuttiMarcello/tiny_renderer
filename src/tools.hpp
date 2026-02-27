@@ -21,3 +21,14 @@ class vec3{
     vec3& normalize();
     vec3 normalized() const;
 };
+
+class ray{
+    public:
+
+    vec3 origin;
+    vec3 direction;
+
+    ray(const vec3& origin, const vec3& direction);
+
+    vec3 at(float);
+};

@@ -18,9 +18,10 @@ At the current stage:
 - Implemented CMake builder
 - Define vector class
 - Define custom class operators
+- Include simple ray class
 
 Planned next steps include:
-- Include ray type
+- Implement image writer
 
 ## Repository Structure
 
