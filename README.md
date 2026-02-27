@@ -16,10 +16,11 @@ This project is a work in progress.
 At the current stage:
 - Defined project structure
 - Implemented CMake builder
-
-Planned next steps include:
 - Define vector class
 - Define custom class operators
+
+Planned next steps include:
+- Include ray type
 
 ## Repository Structure
 
