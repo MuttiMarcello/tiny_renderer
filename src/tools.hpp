@@ -20,6 +20,7 @@ class vec3{
     vec3& operator*=(const float& s);
 
     float dot(const vec3& v) const;
+    vec3 cross(const vec3& v) const;
     float norm() const;
 
     vec3& normalize();
@@ -74,5 +75,39 @@ class sphere {
     sphere(const vec3& center, float radius);
 
     bool intersect(const ray& ray, float t_min, float t_max, intersection_record& rec) const;
-
 };
+
+// camera class declaration
+class camera {
+    public:
+
+    vec3 position;
+    vec3 forward_direction;
+    float fov;
+    float aspect_ratio;
+    float focal_length;
+
+    camera(
+        const vec3& position,
+        const vec3& forward_direction,
+        float fov,
+        float aspect_ratio,
+        float focal_length);
+
+    ray get_ray(float u, float v) const;
+
+    private:
+    // Up direction is fixed as world up (0, 0, 1)
+    const vec3 scene_up = vec3(0, 0, 1);
+
+    vec3 origin;
+    vec3 up_direction;
+    vec3 right_direction;
+
+    vec3 lower_left_corner;
+    vec3 horizontal;
+    vec3 vertical;
+};
+
+// rendering function declaration
+void render(const camera& cam, const sphere& sph, image& img);

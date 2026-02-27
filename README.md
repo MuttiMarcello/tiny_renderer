@@ -21,9 +21,13 @@ At the current stage:
 - Include simple ray class
 - Implement RGB image binary output stream
 - Implement ray sphere hit test
+- Implement simple pinhole camera model
+- Implement simple gradient renderer
 
 Planned next steps include:
-- Carry out first actual render
+- Validate pinhole camera model
+- Implement proper shading pipeline
+- Implement material models
 
 ## Repository Structure
 

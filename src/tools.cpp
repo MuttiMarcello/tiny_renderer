@@ -45,6 +45,14 @@ float vec3::dot(const vec3& v) const {
     return x * v.x + y * v.y + z * v.z;
 }
 
+vec3 vec3::cross(const vec3& v) const {
+    return vec3(
+        y * v.z - z * v.y,
+        z * v.x - x * v.z,
+        x * v.y - y * v.x
+    );
+}
+
 float vec3::norm() const {
     return std::sqrt(x * x + y * y + z * z);
 }
@@ -144,3 +152,82 @@ bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_re
 
     return true;
 }
+
+// camera class member function definitions
+camera::camera(
+    const vec3& position,
+    const vec3& forward_direction,
+    float fov,
+    float aspect_ratio,
+    float focal_length) :
+    position(position),
+    forward_direction(forward_direction.normalized()),
+    fov(fov),
+    aspect_ratio(aspect_ratio),
+    focal_length(focal_length) {
+
+        // origin is the camera position
+        origin = position;
+
+        vec3 r = forward_direction.cross(scene_up);
+        if (r.norm() == 0) {
+            r = vec3(1, 0, 0); // If forward is parallel to up, choose a different right direction
+        } else {
+            r = r.normalized();
+        }
+        right_direction = r;
+        up_direction = right_direction.cross(forward_direction).normalized();
+
+        float theta = fov * M_PI / 180.0f;
+        float half_height = std::tan(theta / 2.0f) * focal_length;
+        float half_width = aspect_ratio * half_height;
+
+        vec3 view_point_center = origin + forward_direction * focal_length;
+
+        horizontal = right_direction * (2.0f * half_width);
+        vertical = up_direction * (2.0f * half_height);
+        lower_left_corner = view_point_center - horizontal * 0.5f - vertical * 0.5f;
+    };
+
+ray camera::get_ray(float u, float v) const {
+    vec3 pixel_position = lower_left_corner + horizontal * u + vertical * v;
+    vec3 direction = (pixel_position - origin).normalized();
+    return ray(origin, direction);
+};
+
+// rendering function declaration
+void render(const camera& cam, const sphere& sph, image& img) {
+
+    if (img.width <= 0 || img.height <= 0) return;
+
+    int it_count = 0;
+
+    for (int y=0; y<img.height; ++y) {
+        for (int x=0; x<img.width; ++x) {    
+
+            float u = (float)x / float(img.width - 1);
+            float v = (float)y / float(img.height - 1);
+
+            // Explore why flipped v coordinate is needed for correct image orientation
+            ray ray = cam.get_ray(u, 1.0f - v);
+
+            intersection_record rec;
+            if (sph.intersect(ray,1e-3f, 1e30f, rec)) {
+                // Simple shading based on normal
+                vec3 n = rec.normal;
+                u_int8_t r = (u_int8_t)(255.0f * (n.x + 1.0f) * 0.5f);
+                u_int8_t g = (u_int8_t)(255.0f * (n.y + 1.0f) * 0.5f);
+                u_int8_t b = (u_int8_t)(255.0f * (n.z + 1.0f) * 0.5f);
+                img.set_pixel(x, y, r, g, b);
+            } else {
+                // Background color
+                img.set_pixel(x, y, 135, 206, 235); // Sky blue
+            }
+            // Progress output
+            std::cout << float(it_count) / float(img.width * img.height) * 100.0f << "%\r" << std::flush;
+            it_count++;
+        }
+    }
+    // Write the rendered image to file
+    img.write_ppm("render.ppm"); 
+};
