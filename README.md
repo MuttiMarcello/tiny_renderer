@@ -20,9 +20,10 @@ At the current stage:
 - Define custom class operators
 - Include simple ray class
 - Implement RGB image binary output stream
+- Implement ray sphere hit test
 
 Planned next steps include:
-- Carry out ray sphere hit test
+- Carry out first actual render
 
 ## Repository Structure
 

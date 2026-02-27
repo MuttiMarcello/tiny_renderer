@@ -1,5 +1,6 @@
 build/
 CMakeCache.txt
+.vscode
 CMakeFiles/
 *.o
 *.a

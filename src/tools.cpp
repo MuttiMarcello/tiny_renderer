@@ -41,7 +41,7 @@ vec3& vec3::operator*=(const float& s) {
 }
 
 // Vector operations
-float vec3::dot(const vec3& v) {
+float vec3::dot(const vec3& v) const {
     return x * v.x + y * v.y + z * v.z;
 }
 
@@ -67,7 +67,7 @@ vec3 vec3::normalized() const {
 // ray class member function definitions
 ray::ray(const vec3& origin, const vec3& direction) : origin(origin), direction(direction.normalized()) {}
 
-vec3 ray::at(float t) {
+vec3 ray::at(float t) const {
     return origin + direction * t;
 }
 
@@ -112,4 +112,35 @@ void gradient_image(int width, int height, const std::string& filepath) {
         std::cerr << "Failed to write " << filepath << "\n";
     }
 
+}
+
+// sphere object definition
+sphere::sphere(const vec3& center, float radius) : center(center), radius(radius) {};
+
+bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_record& rec) const {
+
+    vec3 origin_center = ray.origin - center;   // origin with respect to sphere center
+
+    float half_b = origin_center.dot(ray.direction);
+    float c = origin_center.dot(origin_center) - radius * radius;
+
+    float disc = half_b * half_b - c;
+    if (disc < 0) return false; // No intersection
+
+    float s = std::sqrt(disc);
+
+    // Try nearest root first
+    float t = -half_b-s;
+    if (t < t_min || t > t_max) {
+        t = -half_b + s;
+        if (t < t_min || t > t_max) {
+            return false; // No valid intersection
+        }
+    }
+
+    rec.t = t;
+    rec.point = ray.at(t);
+    rec.normal = (rec.point - center) * (1.0f / radius);
+
+    return true;
 }
