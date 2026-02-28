@@ -2,6 +2,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <cstdint>
 
 // vec3 class member function definitions
 vec3::vec3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -82,7 +83,7 @@ vec3 ray::at(float t) const {
 // image class member function definitions
 image::image(int width, int height) : width(width), height(height), rgb(width * height * 3, 0) {}
 
-void image::set_pixel(int x, int y, u_int8_t r, u_int8_t g, u_int8_t b) {
+void image::set_pixel(int x, int y, std::uint8_t r, std::uint8_t g, std::uint8_t b) {
     if (x<0 || x>=width || y<0 || y>=height) return; // Out of bounds check
     int id = 3 * (y * width + x);
     rgb[id + 0] = r;
@@ -103,13 +104,16 @@ bool image::write_ppm(const std::string& filepath) const {
 void gradient_image(int width, int height, const std::string& filepath) {
     image img(width, height);
 
+    const float width_inv = 1.0f / float(img.width - 1);
+    const float height_inv = 1.0f / float(img.height - 1);
+
     for (int y=0; y<img.height; ++y) {
+        float yf = (float)y * height_inv;
         for (int x=0; x<img.width; ++x) {
-            float xf = (float)x / float(img.width - 1);
-            float yf = (float)y / float(img.height - 1);
-            u_int8_t r = (u_int8_t)(255.0f * xf);
-            u_int8_t g = (u_int8_t)(255.0f * yf);
-            u_int8_t b = 0;
+            float xf = (float)x * width_inv;
+            std::uint8_t r = (std::uint8_t)(255.0f * xf);
+            std::uint8_t g = (std::uint8_t)(255.0f * yf);
+            std::uint8_t b = 0;
             img.set_pixel(x, y, r, g, b);
         }
     }
@@ -191,7 +195,7 @@ camera::camera(
 
 ray camera::get_ray(float u, float v) const {
     vec3 pixel_position = lower_left_corner + horizontal * u + vertical * v;
-    vec3 direction = (pixel_position - origin).normalized();
+    vec3 direction = (pixel_position - origin);
     return ray(origin, direction);
 };
 
@@ -199,8 +203,6 @@ ray camera::get_ray(float u, float v) const {
 void render(const camera& cam, const sphere& sph, image& img) {
 
     if (img.width <= 0 || img.height <= 0) return;
-
-    int it_count = 0;
 
     for (int y=0; y<img.height; ++y) {
         for (int x=0; x<img.width; ++x) {    
@@ -215,17 +217,14 @@ void render(const camera& cam, const sphere& sph, image& img) {
             if (sph.intersect(ray,1e-3f, 1e30f, rec)) {
                 // Simple shading based on normal
                 vec3 n = rec.normal;
-                u_int8_t r = (u_int8_t)(255.0f * (n.x + 1.0f) * 0.5f);
-                u_int8_t g = (u_int8_t)(255.0f * (n.y + 1.0f) * 0.5f);
-                u_int8_t b = (u_int8_t)(255.0f * (n.z + 1.0f) * 0.5f);
+                std::uint8_t r = (std::uint8_t)(255.0f * (n.x + 1.0f) * 0.5f);
+                std::uint8_t g = (std::uint8_t)(255.0f * (n.y + 1.0f) * 0.5f);
+                std::uint8_t b = (std::uint8_t)(255.0f * (n.z + 1.0f) * 0.5f);
                 img.set_pixel(x, y, r, g, b);
             } else {
                 // Background color
                 img.set_pixel(x, y, 135, 206, 235); // Sky blue
             }
-            // Progress output
-            std::cout << float(it_count) / float(img.width * img.height) * 100.0f << "%\r" << std::flush;
-            it_count++;
         }
     }
     // Write the rendered image to file

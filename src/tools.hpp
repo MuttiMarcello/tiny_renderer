@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <cstdint>
 
 // vec3 class declaration
 class vec3{
@@ -44,11 +45,11 @@ class image{
     public:
 
     int width, height;
-    std::vector<u_int8_t> rgb;
+    std::vector<std::uint8_t> rgb;
 
     image(int width, int height);
 
-    void set_pixel(int x, int y, u_int8_t r, u_int8_t g, u_int8_t b);
+    void set_pixel(int x, int y, std::uint8_t r, std::uint8_t g, std::uint8_t b);
 
     bool write_ppm(const std::string& filepath) const;
 };
