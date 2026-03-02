@@ -28,6 +28,9 @@ int main() {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     std::cout << "Rendering completed in " << duration.count() << " ms\n";
     std::cout << "FPS: " << (1000.0f / duration.count()) << "\n";
+    
+    // Write the rendered image to file
+    img.write_ppm("render.ppm"); 
 
     return 0;
 }

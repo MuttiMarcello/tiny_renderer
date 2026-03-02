@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstdint>
+#include <thread>
 
 // vec3 class member function definitions
 vec3::vec3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -154,7 +155,7 @@ bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_re
 
     rec.t = t;
     rec.point = ray.at(t);
-    rec.normal = (rec.point - center) * (1.0f / radius);
+    rec.normal = ((rec.point - center) * (1.0f / radius)).normalized();
 
     return true;
 }
@@ -206,29 +207,83 @@ void render(const pinhole_cam& cam, const sphere& sph, image& img) {
 
     if (img.width <= 0 || img.height <= 0) return;
 
-    for (int y=0; y<img.height; ++y) {
-        for (int x=0; x<img.width; ++x) {    
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4; // Fallback to 4 threads if hardware_concurrency cannot determine
+    num_threads = std::min(num_threads, static_cast<unsigned int>(img.height)); // Limit threads to image height
 
-            float u = static_cast<float>(x) / static_cast<float>(img.width - 1);
-            float v = static_cast<float>(y) / static_cast<float>(img.height - 1);
+    std::cout << "Using " << num_threads << " threads for rendering\n";
 
-            // Explore why flipped v coordinate is needed for correct image orientation
-            ray ray = cam.get_ray(u, 1.0f - v);
+    auto worker = [&](int y0, int y1) {
+        const float inv_width = 1.0f / static_cast<float>(img.width - 1);
+        const float inv_height = 1.0f / static_cast<float>(img.height - 1);
 
-            intersection_record rec;
-            if (sph.intersect(ray,1e-3f, 1e30f, rec)) {
-                // Simple shading based on normal
-                vec3 n = rec.normal;
-                std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
-                std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
-                std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
-                img.set_pixel(x, y, r, g, b);
-            } else {
-                // Background color
-                img.set_pixel(x, y, 135, 206, 235); // Sky blue
+        for (int y = y0; y < y1; ++y){
+            for (int x = 0; x < img.width; ++x) {
+                float u = static_cast<float>(x) * inv_width;
+                float v = static_cast<float>(y) * inv_height;
+
+                // Explore why flipped v coordinate is needed for correct image orientation
+                ray ray = cam.get_ray(u, 1.0f - v);
+
+                intersection_record rec;
+                if (sph.intersect(ray, 1e-3f, 1e30f, rec)) {
+                    // Simple shading based on normal
+                    vec3 n = rec.normal;
+                    std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
+                    std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
+                    std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
+                    img.set_pixel(x, y, r, g, b);
+                } else {
+                    // Background color
+                    img.set_pixel(x, y, 135, 206, 235); // Sky blue
+                }
             }
         }
+    };
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    const int rows_per_thread = img.height / num_threads;
+    int y_start = 0;
+
+    for (int t=0; t<num_threads; ++t) {
+
+        // int yEnd;
+        // if (t == num_threads - 1) {
+        //     yEnd = img.height;
+        // } else {
+        //     yEnd = yStart + rows_per_thread;
+        // }
+        int y_end = (t == num_threads - 1) ? img.height : (y_start + rows_per_thread);
+        
+        threads.emplace_back(worker, y_start, y_end);
+        y_start = y_end;
     }
-    // Write the rendered image to file
-    img.write_ppm("render.ppm"); 
+
+    for (auto& th : threads) th.join();
+
+    // for (int y=0; y<img.height; ++y) {
+    //     for (int x=0; x<img.width; ++x) {    
+
+    //         float u = static_cast<float>(x) / static_cast<float>(img.width - 1);
+    //         float v = static_cast<float>(y) / static_cast<float>(img.height - 1);
+
+    //         // Explore why flipped v coordinate is needed for correct image orientation
+    //         ray ray = cam.get_ray(u, 1.0f - v);
+
+    //         intersection_record rec;
+    //         if (sph.intersect(ray,1e-3f, 1e30f, rec)) {
+    //             // Simple shading based on normal
+    //             vec3 n = rec.normal;
+    //             std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
+    //             std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
+    //             std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
+    //             img.set_pixel(x, y, r, g, b);
+    //         } else {
+    //             // Background color
+    //             img.set_pixel(x, y, 135, 206, 235); // Sky blue
+    //         }
+    //     }
+    // }
 };
