@@ -159,8 +159,8 @@ bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_re
     return true;
 }
 
-// camera class member function definitions
-camera::camera(
+// pinhole camera class member function definitions
+pinhole_cam::pinhole_cam(
     const vec3& position,
     const vec3& forward_direction,
     float fov,
@@ -195,14 +195,14 @@ camera::camera(
         lower_left_corner = view_point_center - horizontal * 0.5f - vertical * 0.5f;
     };
 
-ray camera::get_ray(float u, float v) const {
+ray pinhole_cam::get_ray(float u, float v) const {
     vec3 pixel_position = lower_left_corner + horizontal * u + vertical * v;
     vec3 direction = (pixel_position - origin);
     return ray(origin, direction);
 };
 
 // rendering function declaration
-void render(const camera& cam, const sphere& sph, image& img) {
+void render(const pinhole_cam& cam, const sphere& sph, image& img) {
 
     if (img.width <= 0 || img.height <= 0) return;
 

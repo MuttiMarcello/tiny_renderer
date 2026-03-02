@@ -66,8 +66,15 @@ class intersection_record {
     vec3 normal;
 };
 
+// class object declaration
+class object {
+    public:
+
+    virtual bool intersect(const ray& ray, float t_min, float t_max, intersection_record& rec) const = 0;
+};
+
 // sphere object declaration
-class sphere {
+class sphere : object{
     public:
 
     vec3 center;
@@ -80,6 +87,11 @@ class sphere {
 
 // camera class declaration
 class camera {
+    virtual ray get_ray(float u, float v) const = 0;
+};
+
+// pinhole camera class declaration
+class pinhole_cam : public camera {
     public:
 
     vec3 position;
@@ -88,14 +100,14 @@ class camera {
     float aspect_ratio;
     float focal_length;
 
-    camera(
+    pinhole_cam(
         const vec3& position,
         const vec3& forward_direction,
         float fov,
         float aspect_ratio,
         float focal_length);
 
-    ray get_ray(float u, float v) const;
+    ray get_ray(float u, float v) const override;
 
     private:
     // Up direction is fixed as world up (0, 0, 1)
@@ -111,4 +123,4 @@ class camera {
 };
 
 // rendering function declaration
-void render(const camera& cam, const sphere& sph, image& img);
+void render(const pinhole_cam& cam, const sphere& sph, image& img);

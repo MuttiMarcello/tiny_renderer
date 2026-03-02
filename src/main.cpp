@@ -11,7 +11,7 @@ int main() {
 
     float aspect_ratio = static_cast<float>(image_width) / static_cast<float>(image_height);
 
-    camera cam(vec3(0, 0, 0), vec3(1, 0, 0), fov, aspect_ratio, focal_length);
+    pinhole_cam cam(vec3(0, 0, 0), vec3(1, 0, 0), fov, aspect_ratio, focal_length);
     sphere sph(vec3(5, 1, 1), 1.0f);
     image img(image_width, image_height);
 
