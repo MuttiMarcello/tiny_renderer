@@ -24,7 +24,7 @@ class vec3{
     vec3 cross(const vec3& v) const;
     float norm() const;
 
-    vec3& normalize();
+    vec3& normalize();  // never used, but implemented for completeness
     vec3 normalized() const;
 };
 
@@ -37,7 +37,7 @@ class ray{
 
     ray(const vec3& origin, const vec3& direction);
 
-    vec3 at(float) const;
+    vec3 at(float t) const;
 };
 
 // image class declaration

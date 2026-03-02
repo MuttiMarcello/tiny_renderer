@@ -8,6 +8,7 @@
 vec3::vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 
 // Operator overloads
+// rvalue operators
 vec3 vec3::operator+(const vec3& v) const {
     return vec3(x + v.x, y + v.y, z + v.z);
 }
@@ -20,6 +21,7 @@ vec3 vec3::operator*(const float& s) const {
     return vec3(x * s, y * s, z * s);
 }
 
+// lvalue operators
 vec3& vec3::operator+=(const vec3& v) {
     x += v.x;
     y += v.y;
@@ -58,7 +60,7 @@ float vec3::norm() const {
     return std::sqrt(x * x + y * y + z * z);
 }
 
-vec3& vec3::normalize() {
+vec3& vec3::normalize() {   // never used, but implemented for completeness
     float n = norm();
     if (n == 0) return *this; // Avoid division by zero
     x /= n;
@@ -104,15 +106,15 @@ bool image::write_ppm(const std::string& filepath) const {
 void gradient_image(int width, int height, const std::string& filepath) {
     image img(width, height);
 
-    const float width_inv = 1.0f / float(img.width - 1);
-    const float height_inv = 1.0f / float(img.height - 1);
+    const float width_inv = 1.0f / static_cast<float>(img.width - 1);
+    const float height_inv = 1.0f / static_cast<float>(img.height - 1);
 
     for (int y=0; y<img.height; ++y) {
-        float yf = (float)y * height_inv;
+        float yf = static_cast<float>(y) * height_inv;
         for (int x=0; x<img.width; ++x) {
-            float xf = (float)x * width_inv;
-            std::uint8_t r = (std::uint8_t)(255.0f * xf);
-            std::uint8_t g = (std::uint8_t)(255.0f * yf);
+            float xf = static_cast<float>(x) * width_inv;
+            std::uint8_t r = static_cast<std::uint8_t>(255.0f * xf);
+            std::uint8_t g = static_cast<std::uint8_t>(255.0f * yf);
             std::uint8_t b = 0;
             img.set_pixel(x, y, r, g, b);
         }
@@ -207,8 +209,8 @@ void render(const camera& cam, const sphere& sph, image& img) {
     for (int y=0; y<img.height; ++y) {
         for (int x=0; x<img.width; ++x) {    
 
-            float u = (float)x / float(img.width - 1);
-            float v = (float)y / float(img.height - 1);
+            float u = static_cast<float>(x) / static_cast<float>(img.width - 1);
+            float v = static_cast<float>(y) / static_cast<float>(img.height - 1);
 
             // Explore why flipped v coordinate is needed for correct image orientation
             ray ray = cam.get_ray(u, 1.0f - v);
@@ -217,9 +219,9 @@ void render(const camera& cam, const sphere& sph, image& img) {
             if (sph.intersect(ray,1e-3f, 1e30f, rec)) {
                 // Simple shading based on normal
                 vec3 n = rec.normal;
-                std::uint8_t r = (std::uint8_t)(255.0f * (n.x + 1.0f) * 0.5f);
-                std::uint8_t g = (std::uint8_t)(255.0f * (n.y + 1.0f) * 0.5f);
-                std::uint8_t b = (std::uint8_t)(255.0f * (n.z + 1.0f) * 0.5f);
+                std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
+                std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
+                std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
                 img.set_pixel(x, y, r, g, b);
             } else {
                 // Background color

@@ -9,7 +9,7 @@ int main() {
     float fov = 60.0f;
     float focal_length = 1.0f;
 
-    float aspect_ratio = (float)image_width / (float)image_height;
+    float aspect_ratio = static_cast<float>(image_width) / static_cast<float>(image_height);
 
     camera cam(vec3(0, 0, 0), vec3(1, 0, 0), fov, aspect_ratio, focal_length);
     sphere sph(vec3(5, 1, 1), 1.0f);
