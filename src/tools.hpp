@@ -28,6 +28,21 @@ class vec3{
     vec3 normalized() const;
 };
 
+// DCM class declaration
+class DCM{
+    public:
+
+    vec3 v1, v2, v3;
+
+    DCM() : v1(1, 0, 0), v2(0, 1, 0), v3(0, 0, 1) {};   // Default constructor initializes to identity DCM
+    DCM(vec3 v1, vec3 v2, vec3 v3);
+
+    /**
+     * Add rotation matrix construction
+     */
+
+};
+
 // ray class declaration
 class ray{
     public:
@@ -95,14 +110,14 @@ class pinhole_cam : public camera {
     public:
 
     vec3 position;
-    vec3 forward_direction;
+    DCM orientation;
     float fov;
     float aspect_ratio;
     float focal_length;
 
     pinhole_cam(
         const vec3& position,
-        const vec3& forward_direction,
+        const DCM& orientation,
         float fov,
         float aspect_ratio,
         float focal_length);
@@ -110,16 +125,13 @@ class pinhole_cam : public camera {
     ray get_ray(float u, float v) const override;
 
     private:
-    // Up direction is fixed as world up (0, 0, 1)
-    const vec3 scene_up = vec3(0, 0, 1);
-
     vec3 origin;
-    vec3 up_direction;
-    vec3 right_direction;
-
     vec3 lower_left_corner;
     vec3 horizontal;
     vec3 vertical;
+    // vec3 forward_direction;
+    // vec3 up_direction;
+    // vec3 right_direction;
 };
 
 // thread worker function declaration

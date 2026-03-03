@@ -76,6 +76,9 @@ vec3 vec3::normalized() const {
     return vec3(x / n, y / n, z / n);
 }
 
+// DCM class member function definitions
+DCM::DCM(vec3 v1, vec3 v2, vec3 v3) : v1(v1.normalized()), v2(v2.normalized()), v3(v3.normalized()) {};
+
 // ray class member function definitions
 ray::ray(const vec3& origin, const vec3& direction) : origin(origin), direction(direction.normalized()) {}
 
@@ -163,12 +166,12 @@ bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_re
 // pinhole camera class member function definitions
 pinhole_cam::pinhole_cam(
     const vec3& position,
-    const vec3& forward_direction,
+    const DCM& orientation,
     float fov,
     float aspect_ratio,
     float focal_length) :
     position(position),
-    forward_direction(forward_direction.normalized()),
+    orientation(orientation),
     fov(fov),
     aspect_ratio(aspect_ratio),
     focal_length(focal_length) {
@@ -176,14 +179,10 @@ pinhole_cam::pinhole_cam(
         // origin is the camera position
         origin = position;
 
-        vec3 r = forward_direction.cross(scene_up);
-        if (r.norm() == 0) {
-            r = vec3(1, 0, 0); // If forward is parallel to up, choose a different right direction
-        } else {
-            r = r.normalized();
-        }
-        right_direction = r;
-        up_direction = right_direction.cross(forward_direction).normalized();
+        // camera directions are the columns of the DCM
+        vec3 forward_direction = orientation.v1;
+        vec3 right_direction = orientation.v2;
+        vec3 up_direction = orientation.v3;
 
         float theta = fov * M_PI / 180.0f;
         float half_height = std::tan(theta / 2.0f) * focal_length;
@@ -213,8 +212,8 @@ static inline void worker_rows(const pinhole_cam* cam, const sphere* sph, image*
             float u = static_cast<float>(x) * inv_width;
             float v = static_cast<float>(y) * inv_height;
 
-            // Explore why flipped v coordinate is needed for correct image orientation
-            ray ray = cam->get_ray(u, 1.0f - v);
+            // Address sign convention for correct image orientation
+            ray ray = cam->get_ray(1.0f - u, 1.0f - v);
 
             intersection_record rec;
             if (sph->intersect(ray, 1e-3f, 1e30f, rec)) {
@@ -254,8 +253,8 @@ void render(const pinhole_cam& cam, const sphere& sph, image& img) {
     //         for (int x = 0; x < img.width; ++x) {
     //             float u = static_cast<float>(x) * inv_width;
     //             float v = static_cast<float>(y) * inv_height;
-    //             // Explore why flipped v coordinate is needed for correct image orientation
-    //             ray ray = cam.get_ray(u, 1.0f - v);
+    //             // Address sign convention for correct image orientation
+    //             ray ray = cam.get_ray(1.0f - u, 1.0f - v);
     //             intersection_record rec;
     //             if (sph.intersect(ray, 1e-3f, 1e30f, rec)) {
     //                 // Simple shading based on normal

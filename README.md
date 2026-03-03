@@ -24,6 +24,7 @@ At the current stage:
 - Implementd simple pinhole camera model
 - Implementd simple gradient renderer
 - Implementd threading for code optimization, increasing code efficienty by 3 fold
+- Defined DCM class, updated camera orientation representation
 
 Planned next steps include:
 - Validate pinhole camera model
