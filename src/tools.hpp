@@ -122,5 +122,8 @@ class pinhole_cam : public camera {
     vec3 vertical;
 };
 
+// thread worker function declaration
+static inline void worker_rows(const pinhole_cam* cam, const sphere* sph, image* img, int y0, int y1);
+
 // rendering function declaration
 void render(const pinhole_cam& cam, const sphere& sph, image& img);

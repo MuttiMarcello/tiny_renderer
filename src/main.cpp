@@ -11,7 +11,7 @@ int main() {
 
     float aspect_ratio = static_cast<float>(image_width) / static_cast<float>(image_height);
 
-    pinhole_cam cam(vec3(0, 0, 0), vec3(1, 0, 0), fov, aspect_ratio, focal_length);
+    pinhole_cam cam(vec3(0, 0, 0), vec3(1, 0, 0.001), fov, aspect_ratio, focal_length);
     sphere sph(vec3(5, 1, 1), 1.0f);
     image img(image_width, image_height);
 
@@ -22,15 +22,16 @@ int main() {
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    // Render the scene
     render(cam, sph, img);
-    
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "Rendering completed in " << duration.count() << " ms\n";
-    std::cout << "FPS: " << (1000.0f / duration.count()) << "\n";
-    
+
     // Write the rendered image to file
     img.write_ppm("render.ppm"); 
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    long long duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+    std::cout << "Rendering completed in " << duration << " microseconds\n";
+    std::cout << "FPS: " << (1e6f / duration) << "\n";
 
     return 0;
 }

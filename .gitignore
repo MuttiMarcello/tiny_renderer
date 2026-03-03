@@ -1,7 +1,7 @@
 build/
 CMakeCache.txt
-.vscode
-.ods
+*.vscode
+*.ods
 CMakeFiles/
 *.o
 *.a
