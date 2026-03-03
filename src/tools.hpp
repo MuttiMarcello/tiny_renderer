@@ -134,8 +134,27 @@ class pinhole_cam : public camera {
     // vec3 right_direction;
 };
 
+// light class declaration
+class light {};
+
+// point light class declaration
+class point_light : public light {
+    public:
+
+    vec3 position;
+    float intensity;
+
+    point_light(const vec3& position, float intensity);
+};
+
+// gradient shader function declaration
+inline void gradient_shader(const sphere& sphere, image& img, const ray& ray, intersection_record& rec, int x, int y);
+
+// lambertian shader function declaration
+inline void lambertian_shader(const sphere& sphere, image& img, const point_light& light, const ray& ray, intersection_record& rec, int x, int y);
+
 // thread worker function declaration
-static inline void worker_rows(const pinhole_cam* cam, const sphere* sph, image* img, int y0, int y1);
+static inline void worker_rows(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light, int y0, int y1);
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const sphere& sph, image& img);
+void render(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light);

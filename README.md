@@ -9,6 +9,8 @@ This repository contains an ongoing project focused on the implementation of a s
 The project follows the given methodology:
 - Point light model
 - Lambert shading
+- Pinhole camera model
+- Reinhart tone mapping
 
 ## Current Status
 
@@ -25,11 +27,13 @@ At the current stage:
 - Implementd simple gradient renderer
 - Implementd threading for code optimization, increasing code efficienty by 3 fold
 - Defined DCM class, updated camera orientation representation
+- Implemented point light class
+- Implemented lambertian shading, with Reinhart tone mapping
 
 Planned next steps include:
 - Validate pinhole camera model
-- Implement proper shading pipeline
 - Implement material models
+- Address template implementation for framework generalization
 
 ## Preliminary Outputs
 
@@ -39,4 +43,4 @@ Representative intermediate outputs include:
 ## Repository Structure
 
 - 'src/' - C++ implementation
-- 'figures/' - Preliminary .ppm outputs
+- 'figures/' - Sample .ppm outputs

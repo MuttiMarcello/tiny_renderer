@@ -201,38 +201,73 @@ ray pinhole_cam::get_ray(float u, float v) const {
     return ray(origin, direction);
 };
 
+// point light class definition
+point_light::point_light(const vec3& position, float intensity) : position(position), intensity(intensity) {};
+
+// gradient shader function definition
+inline void gradient_shader(const sphere& sphere, image& img, const ray& ray, intersection_record& rec, int x, int y) {
+    if (sphere.intersect(ray, 1e-3f, 1e30f, rec)) {
+        // Simple shading based on normal
+        vec3 n = rec.normal;
+        std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
+        std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
+        std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
+        img.set_pixel(x, y, r, g, b);
+    } else {
+        // Background color
+        img.set_pixel(x, y, 135, 206, 235); // Sky blue
+    }
+};
+
+// lambertian shader function definition
+inline void lambertian_shader(const sphere& sphere, image& img, const point_light& light, const ray& ray, intersection_record& rec, int x, int y) {
+    if (sphere.intersect(ray, 1e-3f, 1e30f, rec)) {
+        // Simple shading based on lambertian reflectance
+        vec3 n = rec.normal;
+        vec3 light_point = light.position - rec.point;
+
+        // Attenuation based on inverse square law
+        float distance_squared = light_point.dot(light_point);
+        float intensity_at_point = light.intensity / distance_squared;
+
+        // Lambertian reflectance
+        float diffused_brightness = std::max(0.0f, n.dot(light_point.normalized())) * intensity_at_point;
+
+        // Reinhard tone mapping
+        float brightness_mapped = diffused_brightness / (1.0f + diffused_brightness);
+
+        std::uint8_t rgb_value = static_cast<std::uint8_t>(255.0f * brightness_mapped);
+        img.set_pixel(x, y, rgb_value, rgb_value, rgb_value);
+    } else {
+        // Background color
+        img.set_pixel(x, y, 0, 0, 0); // Black
+    }
+};
+
 // thread worker function definition
-static inline void worker_rows(const pinhole_cam* cam, const sphere* sph, image* img, int y0, int y1) {
+static inline void worker_rows(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light, int y0, int y1) {
     
-    const float inv_width = 1.0f / static_cast<float>(img->width - 1);
-    const float inv_height = 1.0f / static_cast<float>(img->height - 1);
+    const float inv_width = 1.0f / static_cast<float>(img.width - 1);
+    const float inv_height = 1.0f / static_cast<float>(img.height - 1);
+
+    // Reuse intersection record for efficiency, since it's thread-local
+    intersection_record rec;
 
     for (int y = y0; y < y1; ++y){
-        for (int x = 0; x < img->width; ++x) {
+        for (int x = 0; x < img.width; ++x) {
             float u = static_cast<float>(x) * inv_width;
             float v = static_cast<float>(y) * inv_height;
 
             // Address sign convention for correct image orientation
-            ray ray = cam->get_ray(1.0f - u, 1.0f - v);
-
-            intersection_record rec;
-            if (sph->intersect(ray, 1e-3f, 1e30f, rec)) {
-                // Simple shading based on normal
-                vec3 n = rec.normal;
-                std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
-                std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
-                std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
-                img->set_pixel(x, y, r, g, b);
-            } else {
-                // Background color
-                img->set_pixel(x, y, 135, 206, 235); // Sky blue
-            }
+            ray ray = cam.get_ray(1.0f - u, 1.0f - v);
+            // gradient_shader(sph, img, ray, rec, x, y);
+            lambertian_shader(sph, img, light, ray, rec, x, y);
         }
     }
 };
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const sphere& sph, image& img) {
+void render(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light) {
 
     if (img.width <= 1 || img.height <= 1) return;
 
@@ -279,7 +314,7 @@ void render(const pinhole_cam& cam, const sphere& sph, image& img) {
 
     for (int t=0; t<num_threads; ++t) {
         int y_end = (t == num_threads - 1) ? img.height : (y_start + rows_per_thread);        
-        threads.emplace_back(worker_rows, &cam, &sph, &img, y_start, y_end);
+        threads.emplace_back(worker_rows, std::cref(cam), std::cref(sph), std::ref(img), std::cref(light), y_start, y_end);
         y_start = y_end;
     }
 
