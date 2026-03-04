@@ -61,14 +61,14 @@ float vec3::norm() const {
     return std::sqrt(x * x + y * y + z * z);
 }
 
-vec3& vec3::normalize() {   // never used, but implemented for completeness
-    float n = norm();
-    if (n == 0) return *this; // Avoid division by zero
-    x /= n;
-    y /= n;
-    z /= n;
-    return *this;
-}
+// vec3& vec3::normalize() {   // never used, but implemented for completeness
+//     float n = norm();
+//     if (n == 0) return *this; // Avoid division by zero
+//     x /= n;
+//     y /= n;
+//     z /= n;
+//     return *this;
+// }
 
 vec3 vec3::normalized() const {
     float n = norm();
@@ -135,11 +135,11 @@ void gradient_image(int width, int height, const std::string& filepath) {
 // sphere object definition
 sphere::sphere(const vec3& center, float radius) : center(center), radius(radius) {};
 
-bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_record& rec) const {
+bool sphere::hit(const ray& cast_ray, float t_min, float t_max, hit_record& rec) const {
 
-    vec3 origin_center = ray.origin - center;   // origin with respect to sphere center
+    vec3 origin_center = cast_ray.origin - center;   // origin with respect to sphere center
 
-    float half_b = origin_center.dot(ray.direction);
+    float half_b = origin_center.dot(cast_ray.direction);
     float c = origin_center.dot(origin_center) - radius * radius;
 
     float disc = half_b * half_b - c;
@@ -157,11 +157,34 @@ bool sphere::intersect(const ray& ray, float t_min, float t_max, intersection_re
     }
 
     rec.t = t;
-    rec.point = ray.at(t);
+    rec.point = cast_ray.at(t);
     rec.normal = ((rec.point - center) * (1.0f / radius)).normalized();
 
     return true;
 }
+
+// hittable list class member function definitions
+// hittable_list::hittable_list(std::vector<std::shared_ptr<hittable>> objects) : objects(objects) {};
+
+void hittable_list::add(std::shared_ptr<hittable> object) {
+        objects.push_back(object);
+};
+
+bool hittable_list::hit(const ray& cast_ray, float t_min, float t_max, hit_record& rec) const {
+    hit_record temp_rec;
+    bool hit_anything = false;
+    float closest_so_far = t_max;
+
+    for (const auto& object : objects) {
+        if (object->hit(cast_ray, t_min, closest_so_far, temp_rec)) {
+            hit_anything = true;
+            closest_so_far = temp_rec.t;
+            rec = temp_rec; // Update the main record with the closest hit
+        }
+    }
+
+    return hit_anything;
+};  
 
 // pinhole camera class member function definitions
 pinhole_cam::pinhole_cam(
@@ -205,8 +228,8 @@ ray pinhole_cam::get_ray(float u, float v) const {
 point_light::point_light(const vec3& position, float intensity) : position(position), intensity(intensity) {};
 
 // gradient shader function definition
-inline void gradient_shader(const sphere& sphere, image& img, const ray& ray, intersection_record& rec, int x, int y) {
-    if (sphere.intersect(ray, 1e-3f, 1e30f, rec)) {
+inline void gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec, int x, int y) {
+    if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
         // Simple shading based on normal
         vec3 n = rec.normal;
         std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
@@ -219,19 +242,53 @@ inline void gradient_shader(const sphere& sphere, image& img, const ray& ray, in
     }
 };
 
-// lambertian shader function definition
-inline void lambertian_shader(const sphere& sphere, image& img, const point_light& light, const ray& ray, intersection_record& rec, int x, int y) {
-    if (sphere.intersect(ray, 1e-3f, 1e30f, rec)) {
+// masking shader function definition
+inline void masking_shader(const hittable_list& scene, image& img, const point_light& light, const ray& cast_ray, hit_record& rec, int x, int y) {
+    if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
         // Simple shading based on lambertian reflectance
         vec3 n = rec.normal;
-        vec3 light_point = light.position - rec.point;
+        vec3 light_direction = light.position - rec.point;
+
+        float epsilon = 1e-3f; // Small offset to avoid self-intersection
+        ray shadow_ray(rec.point + n * epsilon, light_direction);
+
+        // Shadow ray intersection test
+        if (scene.hit(shadow_ray, 1e-3f, light_direction.norm(), rec)) {
+            // In shadow, set pixel to black
+            img.set_pixel(x, y, 0, 0, 0);
+            return;
+        }
+
+        img.set_pixel(x, y, 255, 255, 255);
+    } else {
+        // Background color
+        img.set_pixel(x, y, 30, 30, 30); // Dark gray
+    }
+};
+
+// lambertian shader function definition
+inline void lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& cast_ray, hit_record& rec, int x, int y) {
+    if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
+        // Simple shading based on lambertian reflectance
+        vec3 n = rec.normal;
+        vec3 light_direction = light.position - rec.point;
+
+        float epsilon = 1e-3f; // Small offset to avoid self-intersection
+        ray shadow_ray(rec.point + n * epsilon, light_direction);
+
+        // Shadow ray intersection test
+        if (scene.hit(shadow_ray, 1e-3f, light_direction.norm(), rec)) {
+            // In shadow, set pixel to black
+            img.set_pixel(x, y, 0, 0, 0);
+            return;
+        }
 
         // Attenuation based on inverse square law
-        float distance_squared = light_point.dot(light_point);
+        float distance_squared = light_direction.dot(light_direction);
         float intensity_at_point = light.intensity / distance_squared;
 
         // Lambertian reflectance
-        float diffused_brightness = std::max(0.0f, n.dot(light_point.normalized())) * intensity_at_point;
+        float diffused_brightness = std::max(0.0f, n.dot(light_direction.normalized())) * intensity_at_point;
 
         // Reinhard tone mapping
         float brightness_mapped = diffused_brightness / (1.0f + diffused_brightness);
@@ -240,18 +297,18 @@ inline void lambertian_shader(const sphere& sphere, image& img, const point_ligh
         img.set_pixel(x, y, rgb_value, rgb_value, rgb_value);
     } else {
         // Background color
-        img.set_pixel(x, y, 0, 0, 0); // Black
+        img.set_pixel(x, y, 30, 30, 30); // Dark gray
     }
 };
 
 // thread worker function definition
-static inline void worker_rows(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light, int y0, int y1) {
+static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1) {
     
     const float inv_width = 1.0f / static_cast<float>(img.width - 1);
     const float inv_height = 1.0f / static_cast<float>(img.height - 1);
 
     // Reuse intersection record for efficiency, since it's thread-local
-    intersection_record rec;
+    hit_record rec;
 
     for (int y = y0; y < y1; ++y){
         for (int x = 0; x < img.width; ++x) {
@@ -259,15 +316,16 @@ static inline void worker_rows(const pinhole_cam& cam, const sphere& sph, image&
             float v = static_cast<float>(y) * inv_height;
 
             // Address sign convention for correct image orientation
-            ray ray = cam.get_ray(1.0f - u, 1.0f - v);
-            // gradient_shader(sph, img, ray, rec, x, y);
-            lambertian_shader(sph, img, light, ray, rec, x, y);
+            ray cast_ray = cam.get_ray(1.0f - u, 1.0f - v);
+            // gradient_shader(scene, img, cast_ray, rec, x, y);
+            // masking_shader(scene, img, light, cast_ray, rec, x, y);
+            lambertian_shader(scene, img, light, cast_ray, rec, x, y);
         }
     }
 };
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light) {
+void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light) {
 
     if (img.width <= 1 || img.height <= 1) return;
 
@@ -314,7 +372,7 @@ void render(const pinhole_cam& cam, const sphere& sph, image& img, const point_l
 
     for (int t=0; t<num_threads; ++t) {
         int y_end = (t == num_threads - 1) ? img.height : (y_start + rows_per_thread);        
-        threads.emplace_back(worker_rows, std::cref(cam), std::cref(sph), std::ref(img), std::cref(light), y_start, y_end);
+        threads.emplace_back(worker_rows, std::cref(cam), std::cref(scene), std::ref(img), std::cref(light), y_start, y_end);
         y_start = y_end;
     }
 

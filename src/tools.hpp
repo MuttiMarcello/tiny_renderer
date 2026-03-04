@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <memory>
 
 // vec3 class declaration
 class vec3{
@@ -24,8 +25,12 @@ class vec3{
     vec3 cross(const vec3& v) const;
     float norm() const;
 
-    vec3& normalize();  // never used, but implemented for completeness
+    // vec3& normalize();  // never used, but implemented for completeness
     vec3 normalized() const;
+
+    vec3 reflect(const vec3& n){
+        return *this - n * 2.0f * this->dot(n) * (1/n.dot(n));  // Assumes non-normalized normal
+    }
 };
 
 // DCM class declaration
@@ -73,7 +78,7 @@ class image{
 void gradient_image(int width, int height, const std::string& filepath);
 
 // intersection record struct declaration
-class intersection_record {
+class hit_record {
     public:
 
     float t;
@@ -81,15 +86,16 @@ class intersection_record {
     vec3 normal;
 };
 
-// class object declaration
-class object {
+// hittable object declaration
+class hittable {
     public:
 
-    virtual bool intersect(const ray& ray, float t_min, float t_max, intersection_record& rec) const = 0;
+    virtual ~hittable() = default;
+    virtual bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const = 0;
 };
 
 // sphere object declaration
-class sphere : object{
+class sphere : public hittable{
     public:
 
     vec3 center;
@@ -97,7 +103,19 @@ class sphere : object{
 
     sphere(const vec3& center, float radius);
 
-    bool intersect(const ray& ray, float t_min, float t_max, intersection_record& rec) const;
+    bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const;
+};
+
+// hittable list class declaration
+class hittable_list : public hittable{
+    public:
+
+    std::vector<std::shared_ptr<hittable>> objects;
+    // hittable_list(std::vector<std::shared_ptr<hittable>> objects);
+    
+    void add(std::shared_ptr<hittable> object);
+    
+    bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const override;
 };
 
 // camera class declaration
@@ -148,13 +166,16 @@ class point_light : public light {
 };
 
 // gradient shader function declaration
-inline void gradient_shader(const sphere& sphere, image& img, const ray& ray, intersection_record& rec, int x, int y);
+inline void gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec, int x, int y);
+
+// masking shader function declaration
+inline void masking_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec, int x, int y);
 
 // lambertian shader function declaration
-inline void lambertian_shader(const sphere& sphere, image& img, const point_light& light, const ray& ray, intersection_record& rec, int x, int y);
+inline void lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec, int x, int y);
 
 // thread worker function declaration
-static inline void worker_rows(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light, int y0, int y1);
+static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1);
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const sphere& sph, image& img, const point_light& light);
+void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light);

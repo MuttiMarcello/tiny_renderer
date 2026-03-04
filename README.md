@@ -29,18 +29,24 @@ At the current stage:
 - Defined DCM class, updated camera orientation representation
 - Implemented point light class
 - Implemented lambertian shading, with Reinhart tone mapping
+- Implemented multiple object scene framework
+- Implemented shadow ray casting
+- Carried out normal gradient and making tests
 
 Planned next steps include:
-- Validate pinhole camera model
 - Implement material models
-- Address template implementation for framework generalization
+- Implement gamma correction
+- Implement anti-aliasing
+- Implement triangles
 
 ## Preliminary Outputs
 
 Representative intermediate outputs include:
-- Gradient shaded sphere rendering
+- Normal gradient shperes rendering
+- Masking test spheres rendering
+- Lambert shader spheres rendering
 
 ## Repository Structure
 
 - 'src/' - C++ implementation
-- 'figures/' - Sample .ppm outputs
+- 'figures/' - Normal, masking, and lambert gradient test .ppm results
