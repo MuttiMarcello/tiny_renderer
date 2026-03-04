@@ -16,35 +16,22 @@ The project follows the given methodology:
 
 This project is a work in progress.
 At the current stage:
-- Defined project structure
-- Implemented CMake builder
-- Defined vector class
-- Defined custom class operators
-- Included simple ray class
-- Implementd RGB image binary output stream
-- Implementd ray sphere hit test
-- Implementd simple pinhole camera model
-- Implementd simple gradient renderer
-- Implementd threading for code optimization, increasing code efficienty by 3 fold
-- Defined DCM class, updated camera orientation representation
-- Implemented point light class
-- Implemented lambertian shading, with Reinhart tone mapping
-- Implemented multiple object scene framework
-- Implemented shadow ray casting
-- Carried out normal gradient and making tests
+- Built robust development framework using CMake, including custom types for geometry handling
+- Developed pinhole camera model with multithreaded renderer and anti-aliasing for smooth generation
+- Implemented multi-object scene framework supporting Lambertian shading, point lights, and shadow ray casting
 
 Planned next steps include:
 - Implement material models
 - Implement gamma correction
-- Implement anti-aliasing
-- Implement triangles
+- Implement triangle geometry
+- Address BVH acceleration for performance
 
 ## Preliminary Outputs
 
 Representative intermediate outputs include:
 - Normal gradient shperes rendering
 - Masking test spheres rendering
-- Lambert shader spheres rendering
+- Lambert shader spheres rendering with anti-aliasing
 
 ## Repository Structure
 

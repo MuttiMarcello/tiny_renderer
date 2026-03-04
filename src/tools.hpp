@@ -48,6 +48,19 @@ class DCM{
 
 };
 
+// color class declaration
+class col3{
+    public:
+
+    float r, g, b;
+    col3() : r(0), g(0), b(0) {};
+    col3(float r, float g, float b);
+
+    col3 operator*(const float& s) const;
+
+    col3& operator+=(const col3& c);
+};
+
 // ray class declaration
 class ray{
     public:
@@ -165,17 +178,20 @@ class point_light : public light {
     point_light(const vec3& position, float intensity);
 };
 
+// random class function declaration
+inline float randf01();
+
 // gradient shader function declaration
-inline void gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec, int x, int y);
+inline col3 gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec);
 
 // masking shader function declaration
-inline void masking_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec, int x, int y);
+inline col3 masking_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec);
 
 // lambertian shader function declaration
-inline void lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec, int x, int y);
+inline col3 lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec);
 
 // thread worker function declaration
-static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1);
+static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1, int aa_N);
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light);
+void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int aa_N);

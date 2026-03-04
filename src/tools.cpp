@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdint>
 #include <thread>
+#include <random>
 
 // vec3 class member function definitions
 vec3::vec3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -78,6 +79,20 @@ vec3 vec3::normalized() const {
 
 // DCM class member function definitions
 DCM::DCM(vec3 v1, vec3 v2, vec3 v3) : v1(v1.normalized()), v2(v2.normalized()), v3(v3.normalized()) {};
+
+// color class member funcion definitions
+col3::col3(float r, float g, float b) : r(r), g(g), b(b) {};
+
+col3 col3::operator*(const float& s) const {
+    return col3(r * s, g * s, b * s);
+}
+
+col3& col3::operator+=(const col3& c) {
+    r += c.r;
+    g += c.g;
+    b += c.b;
+    return *this;
+}
 
 // ray class member function definitions
 ray::ray(const vec3& origin, const vec3& direction) : origin(origin), direction(direction.normalized()) {}
@@ -227,23 +242,30 @@ ray pinhole_cam::get_ray(float u, float v) const {
 // point light class definition
 point_light::point_light(const vec3& position, float intensity) : position(position), intensity(intensity) {};
 
+// random function definition
+inline float randf01() {
+    static thread_local std::mt19937 gen(std::random_device{}());
+    static thread_local std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    return dist(gen);
+};
+
 // gradient shader function definition
-inline void gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec, int x, int y) {
+inline col3 gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec) {
     if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
         // Simple shading based on normal
         vec3 n = rec.normal;
-        std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
-        std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
-        std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
-        img.set_pixel(x, y, r, g, b);
+        float r = 255.0f * (n.x + 1.0f) * 0.5f;
+        float g = 255.0f * (n.y + 1.0f) * 0.5f;
+        float b = 255.0f * (n.z + 1.0f) * 0.5f;
+        return col3(r, g, b);
     } else {
         // Background color
-        img.set_pixel(x, y, 135, 206, 235); // Sky blue
+        return col3(135, 206, 235); // Sky blue
     }
 };
 
 // masking shader function definition
-inline void masking_shader(const hittable_list& scene, image& img, const point_light& light, const ray& cast_ray, hit_record& rec, int x, int y) {
+inline col3 masking_shader(const hittable_list& scene, image& img, const point_light& light, const ray& cast_ray, hit_record& rec) {
     if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
         // Simple shading based on lambertian reflectance
         vec3 n = rec.normal;
@@ -255,19 +277,18 @@ inline void masking_shader(const hittable_list& scene, image& img, const point_l
         // Shadow ray intersection test
         if (scene.hit(shadow_ray, 1e-3f, light_direction.norm(), rec)) {
             // In shadow, set pixel to black
-            img.set_pixel(x, y, 0, 0, 0);
-            return;
+            return col3();
         }
 
-        img.set_pixel(x, y, 255, 255, 255);
+        return col3(255, 255, 255);
     } else {
         // Background color
-        img.set_pixel(x, y, 30, 30, 30); // Dark gray
+        return col3(30, 30, 30);
     }
 };
 
 // lambertian shader function definition
-inline void lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& cast_ray, hit_record& rec, int x, int y) {
+inline col3 lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& cast_ray, hit_record& rec) {
     if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
         // Simple shading based on lambertian reflectance
         vec3 n = rec.normal;
@@ -279,8 +300,7 @@ inline void lambertian_shader(const hittable_list& scene, image& img, const poin
         // Shadow ray intersection test
         if (scene.hit(shadow_ray, 1e-3f, light_direction.norm(), rec)) {
             // In shadow, set pixel to black
-            img.set_pixel(x, y, 0, 0, 0);
-            return;
+            return col3();
         }
 
         // Attenuation based on inverse square law
@@ -293,17 +313,22 @@ inline void lambertian_shader(const hittable_list& scene, image& img, const poin
         // Reinhard tone mapping
         float brightness_mapped = diffused_brightness / (1.0f + diffused_brightness);
 
-        std::uint8_t rgb_value = static_cast<std::uint8_t>(255.0f * brightness_mapped);
-        img.set_pixel(x, y, rgb_value, rgb_value, rgb_value);
+        float rgb_value = 255.0f * brightness_mapped;
+        return col3(rgb_value, rgb_value, rgb_value);
     } else {
         // Background color
-        img.set_pixel(x, y, 30, 30, 30); // Dark gray
+        return col3(30, 30, 30);
     }
 };
 
 // thread worker function definition
-static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1) {
-    
+static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1, int aa_N) {
+
+    if (aa_N < 1) {
+        aa_N = 1;
+        std::cout << "Anti-aliasing samples set to 1\n";
+    }
+
     const float inv_width = 1.0f / static_cast<float>(img.width - 1);
     const float inv_height = 1.0f / static_cast<float>(img.height - 1);
 
@@ -311,21 +336,37 @@ static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scen
     hit_record rec;
 
     for (int y = y0; y < y1; ++y){
-        for (int x = 0; x < img.width; ++x) {
-            float u = static_cast<float>(x) * inv_width;
-            float v = static_cast<float>(y) * inv_height;
+        for (int x = 0; x < img.width; ++x){
 
-            // Address sign convention for correct image orientation
-            ray cast_ray = cam.get_ray(1.0f - u, 1.0f - v);
-            // gradient_shader(scene, img, cast_ray, rec, x, y);
-            // masking_shader(scene, img, light, cast_ray, rec, x, y);
-            lambertian_shader(scene, img, light, cast_ray, rec, x, y);
+            col3 rgb_acc;
+
+            for (int aa_it = 0; aa_it < aa_N; ++aa_it){
+
+                float offset_px = (aa_N == 1) ? 0.5f : randf01();
+                float offset_py = (aa_N == 1) ? 0.5f : randf01();
+
+                float u = (static_cast<float>(x) + offset_px) * inv_width;
+                float v = (static_cast<float>(y) + offset_py) * inv_height;
+
+                // Address sign convention for correct image orientation
+                ray cast_ray = cam.get_ray(1.0f - u, 1.0f - v);
+                // rgb_acc += gradient_shader(scene, img, cast_ray, rec);
+                // rgb_acc += masking_shader(scene, img, light, cast_ray, rec);
+                rgb_acc += lambertian_shader(scene, img, light, cast_ray, rec);
+
+            }
+            col3 rgb = rgb_acc * (1.0f / static_cast<float>(aa_N));
+
+            img.set_pixel(x, y, 
+                        static_cast<std::uint8_t>(rgb.r),
+                        static_cast<std::uint8_t>(rgb.g),
+                        static_cast<std::uint8_t>(rgb.b));
         }
     }
 };
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light) {
+void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int aa_N) {
 
     if (img.width <= 1 || img.height <= 1) return;
 
@@ -335,35 +376,6 @@ void render(const pinhole_cam& cam, const hittable_list& scene, image& img, cons
 
     std::cout << "Using " << num_threads << " threads for rendering\n";
 
-    /** Original inline worker function implementation, moved to worker_rows
-     *  Kept for performance assessment
-     */
-    //
-    // auto worker = [&](int y0, int y1) {
-    //     const float inv_width = 1.0f / static_cast<float>(img.width - 1);
-    //     const float inv_height = 1.0f / static_cast<float>(img.height - 1);
-    //     for (int y = y0; y < y1; ++y){
-    //         for (int x = 0; x < img.width; ++x) {
-    //             float u = static_cast<float>(x) * inv_width;
-    //             float v = static_cast<float>(y) * inv_height;
-    //             // Address sign convention for correct image orientation
-    //             ray ray = cam.get_ray(1.0f - u, 1.0f - v);
-    //             intersection_record rec;
-    //             if (sph.intersect(ray, 1e-3f, 1e30f, rec)) {
-    //                 // Simple shading based on normal
-    //                 vec3 n = rec.normal;
-    //                 std::uint8_t r = static_cast<std::uint8_t>(255.0f * (n.x + 1.0f) * 0.5f);
-    //                 std::uint8_t g = static_cast<std::uint8_t>(255.0f * (n.y + 1.0f) * 0.5f);
-    //                 std::uint8_t b = static_cast<std::uint8_t>(255.0f * (n.z + 1.0f) * 0.5f);
-    //                 img.set_pixel(x, y, r, g, b);
-    //             } else {
-    //                 // Background color
-    //                 img.set_pixel(x, y, 135, 206, 235); // Sky blue
-    //             }
-    //         }
-    //     }
-    // };
-
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
 
@@ -372,7 +384,7 @@ void render(const pinhole_cam& cam, const hittable_list& scene, image& img, cons
 
     for (int t=0; t<num_threads; ++t) {
         int y_end = (t == num_threads - 1) ? img.height : (y_start + rows_per_thread);        
-        threads.emplace_back(worker_rows, std::cref(cam), std::cref(scene), std::ref(img), std::cref(light), y_start, y_end);
+        threads.emplace_back(worker_rows, std::cref(cam), std::cref(scene), std::ref(img), std::cref(light), y_start, y_end, aa_N);
         y_start = y_end;
     }
 

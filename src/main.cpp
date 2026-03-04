@@ -10,6 +10,7 @@ int main() {
     int image_height = 1080;
     float fov = 45.0f;
     float focal_length = 1.0f;
+    int anti_aliasing_samples = 10;
 
     vec3 cam_position(0, 0, 0);
     DCM cam_orientation(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)); // Identity orientation (looking along +X)
@@ -44,7 +45,7 @@ int main() {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Render the scene
-    render(cam, scene, img, light);
+    render(cam, scene, img, light, anti_aliasing_samples);
 
     // Write the rendered image to file
     img.write_ppm("lambert_test.ppm"); 
