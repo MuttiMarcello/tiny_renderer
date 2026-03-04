@@ -249,6 +249,31 @@ inline float randf01() {
     return dist(gen);
 };
 
+// clamp function definition
+static inline float clamp01(float x) {
+    return std::min(1.0f, std::max(0.0f, x));
+}
+
+// Reinhard tone mapping function definition
+static inline col3 reinhard_mapping(const col3& c) {
+    return col3(
+        c.r * (1 / (1.0f + c.r)),
+        c.g * (1 / (1.0f + c.g)),
+        c.b * (1 / (1.0f + c.b))
+    );
+}
+
+// gamma correction function definition
+static inline col3 gamma_correction(const col3& c) {
+    float gamma = 2.2f;
+    float inv = 1.0f / gamma;
+    return col3(
+        std::min(1.0f, std::pow(clamp01(c.r), inv)),
+        std::min(1.0f, std::pow(clamp01(c.g), inv)),
+        std::min(1.0f, std::pow(clamp01(c.b), inv))
+    );
+}
+
 // gradient shader function definition
 inline col3 gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec) {
     if (scene.hit(cast_ray, 1e-3f, 1e30f, rec)) {
@@ -283,7 +308,7 @@ inline col3 masking_shader(const hittable_list& scene, image& img, const point_l
         return col3(255, 255, 255);
     } else {
         // Background color
-        return col3(30, 30, 30);
+        return col3(0.01f, 0.01f, 0.01f);
     }
 };
 
@@ -310,14 +335,11 @@ inline col3 lambertian_shader(const hittable_list& scene, image& img, const poin
         // Lambertian reflectance
         float diffused_brightness = std::max(0.0f, n.dot(light_direction.normalized())) * intensity_at_point;
 
-        // Reinhard tone mapping
-        float brightness_mapped = diffused_brightness / (1.0f + diffused_brightness);
-
-        float rgb_value = 255.0f * brightness_mapped;
+        float rgb_value = diffused_brightness;
         return col3(rgb_value, rgb_value, rgb_value);
     } else {
         // Background color
-        return col3(30, 30, 30);
+        return col3(0.01f, 0.01f, 0.01f);
     }
 };
 
@@ -350,17 +372,17 @@ static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scen
 
                 // Address sign convention for correct image orientation
                 ray cast_ray = cam.get_ray(1.0f - u, 1.0f - v);
-                // rgb_acc += gradient_shader(scene, img, cast_ray, rec);
-                // rgb_acc += masking_shader(scene, img, light, cast_ray, rec);
                 rgb_acc += lambertian_shader(scene, img, light, cast_ray, rec);
 
             }
-            col3 rgb = rgb_acc * (1.0f / static_cast<float>(aa_N));
+            col3 rgb = rgb_acc * (1.0f / static_cast<float>(aa_N)); // [0, inf)
+            col3 rgb_mapped = reinhard_mapping(rgb);                // [0, 1)
+            col3 rgb_corrected = gamma_correction(rgb_mapped);      // [0, 1]
 
             img.set_pixel(x, y, 
-                        static_cast<std::uint8_t>(rgb.r),
-                        static_cast<std::uint8_t>(rgb.g),
-                        static_cast<std::uint8_t>(rgb.b));
+                        static_cast<std::uint8_t>(rgb_corrected.r * 255.0f),
+                        static_cast<std::uint8_t>(rgb_corrected.g * 255.0f),
+                        static_cast<std::uint8_t>(rgb_corrected.b * 255.0f));
         }
     }
 };

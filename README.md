@@ -17,12 +17,11 @@ The project follows the given methodology:
 This project is a work in progress.
 At the current stage:
 - Built robust development framework using CMake, including custom types for geometry handling
-- Developed pinhole camera model with multithreaded renderer and anti-aliasing for smooth generation
+- Developed pinhole camera model with multithreaded renderer and anti-aliasing and gamma correction for smooth generation
 - Implemented multi-object scene framework supporting Lambertian shading, point lights, and shadow ray casting
 
 Planned next steps include:
 - Implement material models
-- Implement gamma correction
 - Implement triangle geometry
 - Address BVH acceleration for performance
 

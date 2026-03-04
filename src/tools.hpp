@@ -178,8 +178,17 @@ class point_light : public light {
     point_light(const vec3& position, float intensity);
 };
 
-// random class function declaration
+// random function declaration
 inline float randf01();
+
+// clamp function declaration
+static inline float clamp01(float x);
+
+// Reinhard tone mapping function declaration
+static inline col3 reinhard_mapping(const col3& c);
+
+// gamma correction function declaration
+static inline col3 gamma_correction(const col3& c);
 
 // gradient shader function declaration
 inline col3 gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec);
