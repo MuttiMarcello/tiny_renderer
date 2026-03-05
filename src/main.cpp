@@ -10,7 +10,7 @@ int main() {
     int image_height = 1080;
     float fov = 45.0f;
     float focal_length = 1.0f;
-    int anti_aliasing_samples = 10;
+    int anti_aliasing_samples = 100;
 
     vec3 cam_position(0, 0, 0);
     DCM cam_orientation(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)); // Identity orientation (looking along +X)
@@ -19,21 +19,25 @@ int main() {
     vec3 sphere_1_center(5, 1, 0);
     vec3 sphere_2_center(6, -1, -1);
     vec3 sphere_3_center(8, -1, 1);
+    auto sphere_1_material = std::make_shared<lambertian>(col3(1.0f, 0.0f, 0.0f));
+    auto sphere_2_material = std::make_shared<lambertian>(col3(0.0f, 0.0f, 1.0f));
+    auto sphere_3_material = std::make_shared<metal>(col3(0.8f, 0.8f, 0.8f));
     float sphere_radius = 1.0f;
 
     // Point light parameters
-    vec3 light_position(0, 3, 0);
-    float light_intensity = 20.0f;
+    vec3 light_direction(1, -1, 0);
+    col3 light_color(249.0f, 215.0f, 28.0f);
+    float radiance = 1.0f;
 
     float aspect_ratio = static_cast<float>(image_width) / static_cast<float>(image_height);
 
     // Create camera, sphere, image and point light objects
     pinhole_cam cam(cam_position, cam_orientation, fov, aspect_ratio, focal_length);
-    sphere sph_1(sphere_1_center, sphere_radius);
-    sphere sph_2(sphere_2_center, sphere_radius);
-    sphere sph_3(sphere_3_center, sphere_radius);
+    sphere sph_1(sphere_1_center, sphere_radius, sphere_1_material);
+    sphere sph_2(sphere_2_center, sphere_radius, sphere_2_material);
+    sphere sph_3(sphere_3_center, sphere_radius, sphere_3_material);
     image img(image_width, image_height);
-    point_light light(light_position, light_intensity);
+    directional_light dir_light(light_direction, light_color, radiance);
 
     // Create a hittable list and add the spheres to it
     hittable_list scene;
@@ -45,10 +49,10 @@ int main() {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Render the scene
-    render(cam, scene, img, light, anti_aliasing_samples);
+    render(cam, scene, img, dir_light, anti_aliasing_samples);
 
     // Write the rendered image to file
-    img.write_ppm("lambert_test.ppm"); 
+    img.write_ppm("recursive_ray_tracing.ppm"); 
     
     // End timing and calculate duration
     auto end_time = std::chrono::high_resolution_clock::now();

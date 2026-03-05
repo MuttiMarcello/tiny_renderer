@@ -15,7 +15,9 @@ class vec3{
 
     vec3 operator+(const vec3& v) const;
     vec3 operator-(const vec3& v) const;
+    vec3 operator-() const;
     vec3 operator*(const float& s) const;
+    vec3 operator/(const float& s) const;
 
     vec3& operator+=(const vec3& v);
     vec3& operator-=(const vec3& v);
@@ -28,9 +30,10 @@ class vec3{
     // vec3& normalize();  // never used, but implemented for completeness
     vec3 normalized() const;
 
-    vec3 reflect(const vec3& n){
-        return *this - n * 2.0f * this->dot(n) * (1/n.dot(n));  // Assumes non-normalized normal
-    }
+    vec3 reflect(const vec3& n) const;
+    // {
+    //     return *this - n * 2.0f * this->dot(n) * (1/n.dot(n));  // Assumes non-normalized normal
+    // }
 };
 
 // DCM class declaration
@@ -45,7 +48,6 @@ class DCM{
     /**
      * Add rotation matrix construction
      */
-
 };
 
 // color class declaration
@@ -56,7 +58,9 @@ class col3{
     col3() : r(0), g(0), b(0) {};
     col3(float r, float g, float b);
 
-    col3 operator*(const float& s) const;
+    col3 operator*(const float& s) const;   // scalar
+    col3 operator*(const col3& c) const;    // component wise
+    col3 operator/(const float& s) const;
 
     col3& operator+=(const col3& c);
 };
@@ -90,16 +94,56 @@ class image{
 // gradient image generation function declaration
 void gradient_image(int width, int height, const std::string& filepath);
 
-// intersection record struct declaration
+// material class forward declaration
+class material;
+
+// hit record class declaration
 class hit_record {
     public:
 
     float t;
     vec3 point;
     vec3 normal;
+
+    std::shared_ptr<material> mat;
+    bool front_face;    // External vs internal surface
+
+    void set_face_normal(const ray& cast_ray, const vec3& out_normal);
 };
 
-// hittable object declaration
+// material class declaration
+class material {
+    public:
+
+    virtual col3 get_albedo() const = 0; 
+    virtual bool scatter(const ray& in_ray, const hit_record& rec, col3& attenuation, ray& scattered) const = 0;
+};
+
+// lambertian material class declaration
+class lambertian : public material{
+    public:
+
+    col3 albedo;
+    lambertian(const col3& albedo);
+
+    col3 get_albedo() const override {return albedo; };
+    bool scatter(const ray& in_ray, const hit_record& rec, col3& attenuation, ray& scattered) const override;
+
+};
+
+// metal material class declaration
+class metal : public material{
+    public:
+
+    col3 albedo;
+    metal(const col3& albedo);
+
+    col3 get_albedo() const override {return albedo; };
+    bool scatter(const ray& in_ray, const hit_record& rec, col3& attenuation, ray& scattered) const override;
+
+};
+
+// hittable class declaration
 class hittable {
     public:
 
@@ -107,16 +151,17 @@ class hittable {
     virtual bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const = 0;
 };
 
-// sphere object declaration
+// sphere class declaration
 class sphere : public hittable{
     public:
 
     vec3 center;
     float radius;
+    std::shared_ptr<material> mat;
 
-    sphere(const vec3& center, float radius);
+    sphere(const vec3& center, float radius, std::shared_ptr<material> mat);
 
-    bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const;
+    bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const override;
 };
 
 // hittable list class declaration
@@ -124,10 +169,9 @@ class hittable_list : public hittable{
     public:
 
     std::vector<std::shared_ptr<hittable>> objects;
-    // hittable_list(std::vector<std::shared_ptr<hittable>> objects);
-    
+
     void add(std::shared_ptr<hittable> object);
-    
+
     bool hit(const ray& ray, float t_min, float t_max, hit_record& rec) const override;
 };
 
@@ -160,9 +204,6 @@ class pinhole_cam : public camera {
     vec3 lower_left_corner;
     vec3 horizontal;
     vec3 vertical;
-    // vec3 forward_direction;
-    // vec3 up_direction;
-    // vec3 right_direction;
 };
 
 // light class declaration
@@ -178,17 +219,36 @@ class point_light : public light {
     point_light(const vec3& position, float intensity);
 };
 
+// directional light class declaration
+class directional_light : public light {
+    public:
+    vec3 direction;
+    col3 color;
+    float radiance;
+
+    directional_light(const vec3& direction, const col3& color, const float& radiance);
+};
+
 // random function declaration
-inline float randf01();
+float randf01();
 
 // clamp function declaration
-static inline float clamp01(float x);
+float clamp01(float x);
+
+// random vector function declaration
+vec3 rand_vec();
 
 // Reinhard tone mapping function declaration
-static inline col3 reinhard_mapping(const col3& c);
+col3 reinhard_mapping(const col3& c);
 
 // gamma correction function declaration
-static inline col3 gamma_correction(const col3& c);
+col3 gamma_correction(const col3& c);
+
+// in shadow function declaration
+bool in_shadow(const vec3& point, const vec3& out_normal, const vec3& light_dir, const hittable_list& scene);
+
+// ray color function declaration
+col3 ray_color(const ray& r, const hittable_list& scene, const directional_light& dir_light, int depth);
 
 // gradient shader function declaration
 inline col3 gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec);
@@ -200,7 +260,7 @@ inline col3 masking_shader(const hittable_list& scene, image& img, const point_l
 inline col3 lambertian_shader(const hittable_list& scene, image& img, const point_light& light, const ray& ray, hit_record& rec);
 
 // thread worker function declaration
-static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1, int aa_N);
+static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const directional_light& dir_light, int y0, int y1, int aa_N);
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int aa_N);
+void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const directional_light& dir_light, int aa_N);

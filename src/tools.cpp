@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <thread>
 #include <random>
+#include <algorithm>
 
 // vec3 class member function definitions
 vec3::vec3(float x, float y, float z) : x(x), y(y), z(z) {}
@@ -19,8 +20,16 @@ vec3 vec3::operator-(const vec3& v) const {
     return vec3(x - v.x, y - v.y, z - v.z);
 }
 
+vec3 vec3::operator-() const {
+    return vec3(-x, -y, -z);
+}
+
 vec3 vec3::operator*(const float& s) const {
     return vec3(x * s, y * s, z * s);
+}
+
+vec3 vec3::operator/(const float& s) const {
+    return vec3(x / s, y / s, z / s);
 }
 
 // lvalue operators
@@ -77,6 +86,10 @@ vec3 vec3::normalized() const {
     return vec3(x / n, y / n, z / n);
 }
 
+vec3 vec3::reflect(const vec3& n) const {
+    return vec3(x, y, z) - n * 2.0f * vec3(x, y, z).dot(n) / n.dot(n);
+}
+
 // DCM class member function definitions
 DCM::DCM(vec3 v1, vec3 v2, vec3 v3) : v1(v1.normalized()), v2(v2.normalized()), v3(v3.normalized()) {};
 
@@ -85,6 +98,14 @@ col3::col3(float r, float g, float b) : r(r), g(g), b(b) {};
 
 col3 col3::operator*(const float& s) const {
     return col3(r * s, g * s, b * s);
+}
+
+col3 col3::operator*(const col3& c) const {
+    return col3(r * c.r, g * c.g, b * c.b);
+}
+
+col3 col3::operator/(const float& s) const {
+    return col3(r / s, g / s, b / s);
 }
 
 col3& col3::operator+=(const col3& c) {
@@ -147,8 +168,43 @@ void gradient_image(int width, int height, const std::string& filepath) {
 
 }
 
-// sphere object definition
-sphere::sphere(const vec3& center, float radius) : center(center), radius(radius) {};
+// hit record member class definitions
+void hit_record::set_face_normal(const ray& cast_ray, const vec3& out_normal) {
+    front_face = cast_ray.direction.dot(out_normal) < 0;
+    normal = front_face ? out_normal : (out_normal * -1);
+};
+
+// lambertian class member function definition
+lambertian::lambertian(const col3& albedo) : albedo(albedo) {};
+
+bool lambertian::scatter(const ray& in_ray, const hit_record& rec, col3& attenuation, ray& scattered) const {
+    vec3 scatter_direction = rec.normal + rand_vec();
+
+    if (scatter_direction.norm() < 1e-8f) {
+        scatter_direction = rec.normal;
+    }
+
+    float epsilon = 1e-3f; // Small offset to avoid self-intersection
+    scattered = ray(rec.point + rec.normal * epsilon, scatter_direction);
+    attenuation = albedo;
+    return true;
+};
+
+// metal class member function definition
+metal::metal(const col3& albedo) : albedo(albedo) {};
+
+bool metal::scatter(const ray& in_ray, const hit_record& rec, col3& attenuation, ray& scattered) const {
+    vec3 reflected = in_ray.direction.reflect(rec.normal);
+
+    float epsilon = 1e-3f; // Small offset to avoid self-intersection
+    scattered = ray(rec.point + rec.normal * epsilon, reflected);
+    attenuation = albedo;
+
+    return (reflected.dot(rec.normal) > 0.0f);
+};
+
+// sphere class member function definitions
+sphere::sphere(const vec3& center, float radius, std::shared_ptr<material> mat) : center(center), radius(radius), mat(mat) {};
 
 bool sphere::hit(const ray& cast_ray, float t_min, float t_max, hit_record& rec) const {
 
@@ -173,14 +229,14 @@ bool sphere::hit(const ray& cast_ray, float t_min, float t_max, hit_record& rec)
 
     rec.t = t;
     rec.point = cast_ray.at(t);
-    rec.normal = ((rec.point - center) * (1.0f / radius)).normalized();
+    vec3 out_normal = (rec.point - center) / radius;
+    rec.set_face_normal(cast_ray, out_normal);
+    rec.mat = mat;
 
     return true;
 }
 
 // hittable list class member function definitions
-// hittable_list::hittable_list(std::vector<std::shared_ptr<hittable>> objects) : objects(objects) {};
-
 void hittable_list::add(std::shared_ptr<hittable> object) {
         objects.push_back(object);
 };
@@ -239,23 +295,31 @@ ray pinhole_cam::get_ray(float u, float v) const {
     return ray(origin, direction);
 };
 
-// point light class definition
+// point light class member function definitions
 point_light::point_light(const vec3& position, float intensity) : position(position), intensity(intensity) {};
 
+// directional light class member function definitions
+directional_light::directional_light(const vec3& direction, const col3& color, const float& radiance) : direction(direction.normalized()), color(color), radiance(radiance) {};
+
 // random function definition
-inline float randf01() {
+float randf01() {
     static thread_local std::mt19937 gen(std::random_device{}());
     static thread_local std::uniform_real_distribution<float> dist(0.0f, 1.0f);
     return dist(gen);
 };
 
 // clamp function definition
-static inline float clamp01(float x) {
+float clamp01(float x) {
     return std::min(1.0f, std::max(0.0f, x));
 }
 
+// random vector function definition
+vec3 rand_vec() {
+    return vec3(2.0f * randf01() - 1.0f, 2.0f * randf01() - 1.0f, 2.0f * randf01() - 1.0f).normalized();
+}
+
 // Reinhard tone mapping function definition
-static inline col3 reinhard_mapping(const col3& c) {
+col3 reinhard_mapping(const col3& c) {
     return col3(
         c.r * (1 / (1.0f + c.r)),
         c.g * (1 / (1.0f + c.g)),
@@ -264,7 +328,7 @@ static inline col3 reinhard_mapping(const col3& c) {
 }
 
 // gamma correction function definition
-static inline col3 gamma_correction(const col3& c) {
+col3 gamma_correction(const col3& c) {
     float gamma = 2.2f;
     float inv = 1.0f / gamma;
     return col3(
@@ -273,6 +337,44 @@ static inline col3 gamma_correction(const col3& c) {
         std::min(1.0f, std::pow(clamp01(c.b), inv))
     );
 }
+
+// in shadow function definition
+bool in_shadow(const vec3& point, const vec3& out_normal, const vec3& light_dir, const hittable_list& scene) {
+    const float epsilon = 1e-3f;
+    ray shadow_ray(point + out_normal * epsilon, light_dir);
+    hit_record rec;
+    return scene.hit(shadow_ray, epsilon, 1e30f, rec);
+};
+
+// ray color function definition
+col3 ray_color(const ray& r, const hittable_list& scene, const directional_light& dir_light, int depth) {
+    if (depth <= 0) {
+        return col3(0.0f, 0.0f, 0.0f);
+    }
+
+    hit_record rec;
+    if (!scene.hit(r, 1e-3f, 1e30f, rec)) {
+        return col3(0.01f, 0.01f, 0.01f);  // background color
+    }
+
+    col3 color(0.0f, 0.0f, 0.0f);
+
+    vec3 to_light = -dir_light.direction;
+
+    if(!in_shadow(rec.point, rec.normal, to_light, scene)){
+        float ndotl = std::max(0.0f, rec.normal.dot(to_light));
+        color += (rec.mat->get_albedo() * dir_light.color) * (dir_light.radiance * ndotl);
+    }
+    
+    ray scattered(vec3(0, 0, 0), vec3(1, 0, 0));
+    col3 attenuation;
+
+    if (rec.mat && rec.mat->scatter(r, rec, attenuation, scattered)) {
+        color += attenuation * ray_color(scattered, scene, dir_light, depth -1);
+    }
+    
+    return color;
+};
 
 // gradient shader function definition
 inline col3 gradient_shader(const hittable_list& scene, image& img, const ray& cast_ray, hit_record& rec) {
@@ -344,12 +446,7 @@ inline col3 lambertian_shader(const hittable_list& scene, image& img, const poin
 };
 
 // thread worker function definition
-static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int y0, int y1, int aa_N) {
-
-    if (aa_N < 1) {
-        aa_N = 1;
-        std::cout << "Anti-aliasing samples set to 1\n";
-    }
+static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scene, image& img, const directional_light& dir_light, int y0, int y1, int aa_N) {
 
     const float inv_width = 1.0f / static_cast<float>(img.width - 1);
     const float inv_height = 1.0f / static_cast<float>(img.height - 1);
@@ -370,14 +467,15 @@ static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scen
                 float u = (static_cast<float>(x) + offset_px) * inv_width;
                 float v = (static_cast<float>(y) + offset_py) * inv_height;
 
-                // Address sign convention for correct image orientation
                 ray cast_ray = cam.get_ray(1.0f - u, 1.0f - v);
-                rgb_acc += lambertian_shader(scene, img, light, cast_ray, rec);
+
+                constexpr int max_depth = 10;
+                rgb_acc += ray_color(cast_ray, scene, dir_light, max_depth);
 
             }
-            col3 rgb = rgb_acc * (1.0f / static_cast<float>(aa_N)); // [0, inf)
-            col3 rgb_mapped = reinhard_mapping(rgb);                // [0, 1)
-            col3 rgb_corrected = gamma_correction(rgb_mapped);      // [0, 1]
+            col3 rgb = rgb_acc / static_cast<float>(aa_N);      // [0, inf)
+            col3 rgb_mapped = reinhard_mapping(rgb);            // [0, 1)
+            col3 rgb_corrected = gamma_correction(rgb_mapped);  // [0, 1]
 
             img.set_pixel(x, y, 
                         static_cast<std::uint8_t>(rgb_corrected.r * 255.0f),
@@ -388,7 +486,12 @@ static inline void worker_rows(const pinhole_cam& cam, const hittable_list& scen
 };
 
 // rendering function declaration
-void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const point_light& light, int aa_N) {
+void render(const pinhole_cam& cam, const hittable_list& scene, image& img, const directional_light& dir_light, int aa_N) {
+
+    if (aa_N < 1) {
+        aa_N = 1;
+        std::cout << "Anti-aliasing samples set to 1\n";
+    }
 
     if (img.width <= 1 || img.height <= 1) return;
 
@@ -406,7 +509,7 @@ void render(const pinhole_cam& cam, const hittable_list& scene, image& img, cons
 
     for (int t=0; t<num_threads; ++t) {
         int y_end = (t == num_threads - 1) ? img.height : (y_start + rows_per_thread);        
-        threads.emplace_back(worker_rows, std::cref(cam), std::cref(scene), std::ref(img), std::cref(light), y_start, y_end, aa_N);
+        threads.emplace_back(worker_rows, std::cref(cam), std::cref(scene), std::ref(img), std::cref(dir_light), y_start, y_end, aa_N);
         y_start = y_end;
     }
 
